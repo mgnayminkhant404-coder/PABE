@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YBU P.A.B.E Student List</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+
+        /* Loading Screen (မူလအတိုင်း) */
+        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #0f172a; color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; text-align: center; padding: 20px; }
+        .loading-box { display: flex; flex-direction: column; align-items: center; gap: 25px; }
+        .glow-spinner { width: 45px; height: 45px; border: 3px solid rgba(56, 189, 248, 0.1); border-top: 3px solid #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .page-container { width: 100%; max-width: 600px; padding: 40px 20px; }
+        #main-content { display: none; opacity: 0; transition: opacity 0.5s ease; }
+        
+        header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #1e293b; padding-bottom: 20px; }
+        header h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+        
+        /* Search Box & Count */
+        .controls { margin-bottom: 20px; }
+        #search-input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #334155; background: #1e293b; color: white; margin-bottom: 10px; }
+        #student-count { font-size: 14px; color: #94a3b8; text-align: center; margin-bottom: 10px; }
+
+        .student-list { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+        .student-list-item { background: #1e293b; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 16px; border: 1px solid #334155; cursor: pointer; transition: 0.2s; }
+        .student-list-item:hover { border-color: #38bdf8; background-color: #24334c; }
+        .list-photo { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8; }
+        .list-name { font-size: 16px; font-weight: 600; flex-grow: 1; }
+        
+        /* Detail Page */
+        #detail-page { display: none; }
+        .back-btn { background: none; border: none; color: #38bdf8; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 25px; }
+        .detail-card { background: #1e293b; border-radius: 20px; padding: 30px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid #334155; }
+        .detail-photo { width: 130px; height: 130px; border-radius: 50%; border: 4px solid #38bdf8; margin-bottom: 20px; object-fit: cover; }
+        .detail-phone { color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 8px 18px; border-radius: 30px; cursor: pointer; border: 1px solid rgba(56, 189, 248, 0.2); font-weight: 600; margin-bottom: 20px; text-decoration: none; }
+        .detail-text { font-size: 14px; color: #cbd5e1; line-height: 1.6; background: #0f172a; padding: 18px; border-radius: 12px; width: 100%; text-align: left; border-left: 4px solid #38bdf8; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="loading-box">
+            <h1>Yangon Buddhist University<br>(Shwepyithar)</h1>
+            <h2>P.A.B.E အတန်းသားများ</h2>
+            <div class="glow-spinner"></div>
+        </div>
+    </div>
+
+    <div id="main-content" class="page-container">
+        <div id="list-page">
+            <header>
+                <h1>2026/2027 ပညာသင်နှစ် P.A.B.E အတန်းသားများ</h1>
+                <p>ကျောင်းသား/သူများစာရင်း အလိုအလျောက်စနစ်</p>
+            </header>
+            
+            <div class="controls">
+                <input type="text" id="search-input" placeholder="🔍 အမည်ဖြင့် ရှာဖွေပါ..." oninput="filterList()">
+                <div id="student-count">စုစုပေါင်း ကျောင်းသား - 0 ဦး</div>
+            </div>
+
+            <div class="student-list" id="student-list"></div>
+        </div>
+
+        <div id="detail-page">
+            <button class="back-btn" onclick="goBack()">← နောက်သို့ပြန်ဆုတ်ရန်</button>
+            <div class="detail-card" id="detail-card-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const SPREADSHEET_ID = '1eiOItecvpbIeOql_Db_LurrFb3tvKJZeMQdx-PyZkGE'; 
+        const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
+        let studentsData = []; 
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const ls = document.getElementById('loading-screen');
+                ls.style.opacity = '0';
+                setTimeout(() => {
+                    ls.style.display = 'none';
+                    const mc = document.getElementById('main-content');
+                    mc.style.display = 'block';
+                    setTimeout(() => { mc.style.opacity = '1'; }, 50);
+                }, 500);
+            }, 1500);
+            fetchStudentData();
+        });
+
+        async function fetchStudentData() {
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const rows = parseCSV(text);
+                
+                studentsData = [];
+                for (let i = 1; i < rows.length; i++) {
+                    if (!rows[i][1]) continue;
+                    studentsData.push({
+                        photo: getDirectDriveLink(rows[i][0]?.replace(/"/g, '').trim()),
+                        name: rows[i][1]?.replace(/"/g, '').trim(),
+                        phone: rows[i][2]?.replace(/"/g, '').trim(),
+                        text: rows[i][3]?.replace(/"/g, '').trim()
+                    });
+                }
+                displayList(studentsData);
+            } catch (e) { console.error(e); }
+        }
+
+        function displayList(data) {
+            const container = document.getElementById('student-list');
+            document.getElementById('student-count').innerText = `စုစုပေါင်း ကျောင်းသား - ${data.length} ဦး`;
+            container.innerHTML = data.map((s, index) => `
+                <div class="student-list-item" onclick="showDetail(${index})">
+                    <img src="${s.photo}" class="list-photo" onerror="this.src='https://via.placeholder.com/150'">
+                    <div class="list-name">${s.name}</div>
+                    <div class="list-arrow">❯</div>
+                </div>
+            `).join('');
+        }
+
+        function filterList() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = studentsData.filter(s => s.name.toLowerCase().includes(query));
+            displayList(filtered);
+        }
+
+        function showDetail(index) {
+            const s = studentsData[index];
+            document.getElementById('detail-card-content').innerHTML = `
+                <img src="${s.photo}" class="detail-photo" onerror="this.src='https://via.placeholder.com/150'">
+                <div style="font-size: 22px; font-weight: 700; margin-bottom: 12px;">${s.name}</div>
+                ${s.phone ? `<a href="tel:${s.phone}" class="detail-phone">📞 ဖုန်းခေါ်ဆိုရန်: ${s.phone}</a>` : '<div style="color:#64748b; margin-bottom:20px;">ဖုန်းနံပါတ်မရှိပါ</div>'}
+                <div class="detail-text">${s.text || 'အခြားအသေးစိတ်အချက်အလက် မရှိပါ။'}</div>
+            `;
+            document.getElementById('list-page').style.display = 'none';
+            document.getElementById('detail-page').style.display = 'block';
+            window.scrollTo(0,0);
+        }
+
+        function goBack() {
+            document.getElementById('detail-page').style.display = 'none';
+            document.getElementById('list-page').style.display = 'block';
+        }
+
+        // Helper Functions (မူလအတိုင်း)
+        function parseCSV(text) {
+            let lines = text.split('\n');
+            return lines.map(line => {
+                let result = [], current = '', inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    if (line[i] === '"') inQuotes = !inQuotes;
+                    else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+                    else current += line[i];
+                }
+                result.push(current); return result;
+            });
+        }
+
+        function getDirectDriveLink(url) {
+            if (!url) return 'https://via.placeholder.com/150';
+            const regExp = /(?:https?:\/\/)?(?:drive\.google\.com)\/(?:file\/d\/|open\?id=)([^/\s?&#]+)/;
+            const matches = url.match(regExp);
+            return matches && matches[1] ? `https://lh3.googleusercontent.com/d/${matches[1]}` : url;
+        }
+    </script>
+</body>
+</html>
